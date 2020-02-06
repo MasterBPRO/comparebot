@@ -3,8 +3,8 @@ from telegram.ext import Updater, CommandHandler, Filters, MessageHandler
 import os
 import logging
 
-TOKEN = os.getenv(TOKEN)
-HEROKU_URL = os.getenv(URL)
+TOKEN = os.getenv("TOKEN")
+HEROKU_URL = os.getenv("URL")
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
