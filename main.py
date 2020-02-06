@@ -2,6 +2,10 @@ import telegram
 from telegram.ext import Updater, CommandHandler, Filters, MessageHandler
 import os
 import logging
+
+from config import TG_TOKEN as TOKEN
+from config import HEROKU_URL
+
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
