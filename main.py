@@ -71,7 +71,7 @@ if "URL" in list(os.environ.keys()):
     @server.route("/")
     def webhook():
         bot.remove_webhook()
-        bot.set_webhook(url=URL)
+        bot.set_webhook(url=URL+TOKEN)
         return "?", 200
     server.run(host="0.0.0.0", port=os.environ.get('PORT', 8443))
 else:
