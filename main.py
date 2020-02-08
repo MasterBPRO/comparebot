@@ -1,61 +1,81 @@
-import telegram
-from telegram.ext import Updater, CommandHandler, Filters, MessageHandler
-import os
 import logging
+import telebot
+import os.path
+import os
+from flask import Flask, request
 
-TOKEN = os.getenv("TOKEN")
-HEROKU_URL = os.getenv("URL")
 
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+if "TOKEN" in list(os.environ.keys()):
+    # Проверка токена из Хероку
+    TOKEN = os.getenv("TOKEN")
+    URL = os.getenv("URL")
+else:
+    TOKEN = "ВАШ ТОКЕН"
 
-def hello(update, context):
-    update.message.reply_text('Hello {}. I am a bot. I am comparing models that you will upload and to make sure it is not duplicating.'.format(update.message.from_user.first_name))
+bot = telebot.TeleBot(TOKEN)
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
-def compare_models(update,context):
-    chat_id = update.effective_chat.id
-    message_id = update.message.message_id
-    file_name = update.message.document.file_name
-    file_id = update.message.document.file_id
 
+@bot.message_handler(commands=["start"])
+def start_bot(message):
+    bot.send_message(message.chat.id, "Ok!", reply_to_message_id=message.message_id)
+
+
+@bot.message_handler(content_types=["document"])
+def start_doc(message):
+    print(message)
     flag = True
+    filedata = str(message.chat.id) + ".txt"
+    try:
+        if os.path.exists(filedata):
+            with open(filedata, 'r', encoding="utf-8") as file:
+                model_list = file.readlines()
+        else:
+            with open(filedata, 'w+', encoding="utf-8") as file:
+                model_list = file.readlines()
+    except:
+        bot.send_message(message.chat.id, "😤Больше так не делаете!", reply_to_message_id=message.message_id)
 
-    with open(r'list_models.txt', 'r') as file:
-        model_list = file.readlines()
-    print("model list:", model_list, ". Len:", len(model_list))
 
     for model in model_list:
-        print("Model:", model)
+        # Удаления файла
         curModel = model.split(',')
-        print("curModel =", curModel)
-        if (curModel[1] == (file_name+'\n')): 
-            print("Same model name:", curModel[1])
-            context.bot.delete_message(chat_id, message_id)
-            context.bot.send_message(chat_id, text="Model with name *%s* was uploading early." % curModel[1], parse_mode=telegram.ParseMode.MARKDOWN)
+        if curModel[1 ] == (message.document.file_name + '\n'):
+            bot.delete_message(message.chat.id, message.message_id)
+            # bot.send_message(message.chat.id, text="File with name *%s* was uploading early." % curModel[1], parse_mode="markdown")
             flag = False
             break
 
-    if (flag):
-        model_list.append("{},{}\n".format(file_id,file_name))
-        print("New model list:", model_list)
-        with open(r'list_models.txt', 'w') as file:
-            file.writelines("%s" % line for line in model_list)
-        context.bot.send_message(chat_id, text="Model with name *%(file_name)* and id *%(file_id)* was adding.", parse_mode=telegram.ParseMode.MARKDOWN)
+    if flag:
+        # Добавления файла
+        model_list.append("{},{}\n".format(message.document.file_id, message.document.file_name))
+        try:
+            with open(filedata, 'w', encoding="utf-8") as file:
+                file.writelines("%s" % line for line in model_list)
+        except:
+            bot.send_message(message.chat.id, "😤Больше так не делаете!", reply_to_message_id=message.message_id)
 
-    print("FIle name:", file_name)
 
-PORT = int(os.environ.get('PORT', '8443'))
-updater = Updater(TOKEN, use_context=True)
-dispatcher = updater.dispatcher
+        # bot.send_message(message.chat.id, text="File with name *{}* was adding.".format(message.document.file_name), parse_mode="markdown")
 
-if __name__ == '__main__':
-    updater.start_webhook(listen="0.0.0.0",
-                          port=PORT,
-                          url_path=TOKEN)
-    updater.bot.set_webhook(HEROKU_URL + TOKEN)
 
-    dispatcher.add_handler(CommandHandler('hello', hello))
-    check_doc_message = MessageHandler(Filters.document, compare_models)
-    dispatcher.add_handler(check_doc_message)
-
-    updater.idle()
+# Проверим, есть ли переменная окружения Хероку (как ее добавить смотрите ниже)
+if "URL" in list(os.environ.keys()):
+    logger = telebot.logger
+    telebot.logger.setLevel(logging.INFO)
+    server = Flask(__name__)
+    @server.route("/bot", methods=['POST'])
+    def getMessage():
+        bot.process_new_updates([telebot.types.Update.de_json(request.stream.read().decode("utf-8"))])
+        return "!", 200
+    @server.route("/")
+    def webhook():
+        bot.remove_webhook()
+        bot.set_webhook(url=URL)
+        return "?", 200
+    server.run(host="0.0.0.0", port=os.environ.get('PORT', 80))
+else:
+    # если переменной окружения HEROKU нету, значит это запуск с машины разработчика.
+    # Удаляем вебхук на всякий случай, и запускаем с обычным поллингом.
+    bot.remove_webhook()
+    bot.polling(none_stop=True)
