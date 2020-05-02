@@ -6,11 +6,10 @@ db = SqliteDatabase("file.db")
 
 class File(Model):
     id = PrimaryKeyField(null=False)
-    name = CharField()
-    file_id = CharField()
+    name = CharField(unique=True)
+    file_id = CharField(unique=True)
     chat_id = CharField()
 
-    updated = DateTimeField(default=datetime.datetime.now())
     created = DateTimeField(default=datetime.datetime.now())
 
     class Meta:
